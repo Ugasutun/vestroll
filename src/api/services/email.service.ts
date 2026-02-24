@@ -338,6 +338,45 @@ export class EmailService {
   }
 
   // ============================================
+  // PASSWORD RESET EMAILS
+  // ============================================
+
+  static async sendPasswordResetEmail(
+    email: string,
+    firstName: string,
+    resetLink: string
+  ): Promise<void> {
+    const content = `
+      <h2>Reset Your Password</h2>
+      <p>Hi ${firstName},</p>
+      <p>We received a request to reset the password for your ${this.APP_NAME} account. Click the button below to set a new password:</p>
+
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${resetLink}" class="button">Reset Password</a>
+      </div>
+
+      <p>This link will expire in <strong>1 hour</strong>.</p>
+
+      <div class="alert-box info">
+        <strong>Link not working?</strong>
+        <p style="margin: 8px 0 0 0;">Copy and paste the following URL into your browser:</p>
+        <div class="code-box" style="word-break: break-all; font-size: 12px;">${resetLink}</div>
+      </div>
+
+      <div class="alert-box warning">
+        <strong>Didn't request a password reset?</strong>
+        <p style="margin: 8px 0 0 0;">If you didn't request this, you can safely ignore this email. Your password will not be changed.</p>
+      </div>
+    `;
+
+    await this.send({
+      to: email,
+      subject: `Reset your password - ${this.APP_NAME}`,
+      html: this.getBaseTemplate(content),
+    });
+  }
+
+  // ============================================
   // OTP / VERIFICATION EMAILS
   // ============================================
 
