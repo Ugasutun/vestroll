@@ -35,8 +35,7 @@ export default function LoginPage({
     clearError();
     try {
       await login(data.email, data.password);
-      success("Password has been reset successfully");
-      router.push("/dashboard");
+      success("Login successful. Please verify your OTP.");
     } catch (err) {
       showError(error || "Login failed");
     }

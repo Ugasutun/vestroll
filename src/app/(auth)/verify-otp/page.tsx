@@ -5,15 +5,19 @@ import { useRouter } from "next/navigation";
 
 function VerifyOTPPage() {
   const router = useRouter();
-  const mockEmail = "zanab12ab@gmail.com";
+  const searchParams =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const email = searchParams?.get("email") || "User";
 
   const handleVerify = async (otp: string) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    const isValid = otp === "123456";
+    const isValid = otp === "000000";
 
     if (isValid) {
-      router.push("/reset-password");
+      router.push("/dashboard");
     }
 
     return isValid;
@@ -29,15 +33,14 @@ function VerifyOTPPage() {
   };
 
   return (
-        <OTPVerification
-          email={mockEmail}
-          onVerify={handleVerify}
-          onResend={handleResend}
-          onGoBack={handleGoBack}
-          resendCooldown={60}
-        />
+    <OTPVerification
+      email={email}
+      onVerify={handleVerify}
+      onResend={handleResend}
+      onGoBack={handleGoBack}
+      resendCooldown={60}
+    />
   );
 }
 
 export default VerifyOTPPage;
-

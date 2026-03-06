@@ -33,7 +33,7 @@ export const useAuth = (): UseAuthReturn => {
 
     try {
       await AuthService.login({ email, password });
-      router.push("/dashboard");
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
