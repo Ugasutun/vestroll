@@ -12,10 +12,11 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      - uses: actions/checkout@v4
       - name: Label PR based on change paths
         uses: actions/labeler@v5
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
 
   size-check:
@@ -24,6 +25,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
+      - uses: actions/checkout@v4
       - name: Check PR size
         uses: codelytv/pr-size-labeler@v1
         with:
