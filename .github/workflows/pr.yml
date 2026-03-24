@@ -20,6 +20,10 @@ jobs:
         working-directory: apps/indexer
     steps:
       - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
         with:

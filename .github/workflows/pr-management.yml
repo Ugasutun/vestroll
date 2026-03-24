@@ -1,7 +1,7 @@
 name: PR Management
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Label PR based on change paths
         uses: actions/labeler@v5
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
 
   size-check:
