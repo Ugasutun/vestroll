@@ -87,7 +87,13 @@ VestRoll plays a pivotal role in the **Stellar ecosystem** by:
    ```
 2. Configure Environment:
    Add `STELLAR_RPC_URL` and `LAUNCHTUBE_API_KEY` to your `.env.local`.
-3. Start development server:
+3. **Database Setup & Seeding**:
+   To sync the schema and populate the database with realistic test data:
+   ```bash
+   pnpm drizzle-kit push
+   pnpm db:seed
+   ```
+4. Start development server:
    ```bash
    pnpm dev
    ```

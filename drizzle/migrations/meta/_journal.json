@@ -85,6 +85,13 @@
       "when": 1774532473984,
       "tag": "0009_tired_malice",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774549589206,
+      "tag": "0010_dusty_wolf_cub",
+      "breakpoints": true
     }
   ]
 }
