@@ -9,7 +9,11 @@ export type {
 export { MonnifyProvider } from "./monnify.provider";
 export type { MonnifyConfig } from "./monnify.provider";
 
+export { FlutterwaveProvider } from "./flutterwave.provider";
+export type { FlutterwaveConfig } from "./flutterwave.provider";
+
 import { MonnifyProvider } from "./monnify.provider";
+import { FlutterwaveProvider } from "./flutterwave.provider";
 
 /**
  * Create a MonnifyProvider from environment variables.
@@ -28,4 +32,21 @@ export function createMonnifyProvider(): MonnifyProvider {
   }
 
   return new MonnifyProvider({ apiKey, secretKey, baseUrl, contractCode });
+}
+
+/**
+ * Create a FlutterwaveProvider from environment variables.
+ * Throws if any required env var is missing.
+ */
+export function createFlutterwaveProvider(): FlutterwaveProvider {
+  const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
+  const baseUrl = process.env.FLUTTERWAVE_BASE_URL;
+
+  if (!secretKey || !baseUrl) {
+    throw new Error(
+      "Missing required Flutterwave environment variables: FLUTTERWAVE_SECRET_KEY, FLUTTERWAVE_BASE_URL"
+    );
+  }
+
+  return new FlutterwaveProvider({ secretKey, baseUrl });
 }
