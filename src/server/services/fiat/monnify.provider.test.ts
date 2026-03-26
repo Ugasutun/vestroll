@@ -139,4 +139,136 @@ describe("MonnifyProvider", () => {
       expect(authCalls).toHaveLength(1);
     });
   });
+
+  describe("disburse", () => {
+    it("returns a mapped result on successful disbursement", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: { accessToken: "tok", expiresIn: 3600 },
+        }),
+      });
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: {
+            amount: 75000,
+            reference: "ref-ok",
+            transactionReference: "MNFY_OK",
+            status: "SUCCESS",
+            totalFee: 26.88,
+          },
+        }),
+      });
+
+      const result = await provider.disburse({
+        amount: 75000,
+        reference: "ref-ok",
+        narration: "Salary",
+        destinationBankCode: "058",
+        destinationAccountNumber: "1234567890",
+        destinationAccountName: "Ada Lovelace",
+        currency: "NGN",
+      });
+
+      expect(result).toEqual({
+        reference: "ref-ok",
+        providerReference: "MNFY_OK",
+        status: "completed",
+        amount: 75000,
+        fee: 26.88,
+      });
+    });
+
+    it("throws BadRequestError on 400 from Monnify", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: { accessToken: "tok", expiresIn: 3600 },
+        }),
+      });
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          requestSuccessful: false,
+          responseMessage: "Invalid account number",
+          responseBody: null,
+        }),
+      });
+
+      await expect(
+        provider.disburse({
+          amount: 1000,
+          reference: "ref-bad",
+          narration: "Bad",
+          destinationBankCode: "058",
+          destinationAccountNumber: "bad",
+          destinationAccountName: "Nobody",
+          currency: "NGN",
+        })
+      ).rejects.toThrow("Invalid account number");
+    });
+
+    it("throws UnauthorizedError when auth itself fails", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          requestSuccessful: false,
+          responseBody: null,
+        }),
+      });
+
+      await expect(
+        provider.disburse({
+          amount: 1000,
+          reference: "ref-noauth",
+          narration: "Fail auth",
+          destinationBankCode: "058",
+          destinationAccountNumber: "0123456789",
+          destinationAccountName: "X",
+          currency: "NGN",
+        })
+      ).rejects.toThrow("Monnify authentication failed");
+    });
+
+    it("maps PENDING_AUTHORIZATION status to pending", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: { accessToken: "tok", expiresIn: 3600 },
+        }),
+      });
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: {
+            amount: 5000,
+            reference: "ref-pend",
+            transactionReference: "MNFY_PEND",
+            status: "PENDING_AUTHORIZATION",
+            totalFee: 10,
+          },
+        }),
+      });
+
+      const result = await provider.disburse({
+        amount: 5000,
+        reference: "ref-pend",
+        narration: "Pending",
+        destinationBankCode: "058",
+        destinationAccountNumber: "0123456789",
+        destinationAccountName: "Y",
+        currency: "NGN",
+      });
+
+      expect(result.status).toBe("pending");
+    });
+  });
 });
