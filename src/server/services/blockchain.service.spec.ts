@@ -1,16 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
-  Keypair,
-  Networks,
-  TransactionBuilder,
-  Operation,
-  Asset,
   Account,
-  BASE_FEE,
-  xdr,
+  Asset,
+  Keypair,
   nativeToScVal,
-  Address,
+  Networks,
+  Operation,
+  TransactionBuilder,
 } from "@stellar/stellar-sdk";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BlockchainService } from "./blockchain.service";
 
 function mockAccount(publicKey: string, sequence = "100") {
@@ -163,7 +160,6 @@ describe("BlockchainService", () => {
     });
 
     it("should convert a contract ID to an Address ScVal", () => {
-
       const contractId =
         "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
       const scVal = BlockchainService.addressToScVal(contractId);
@@ -202,7 +198,8 @@ describe("BlockchainService", () => {
           {
             asset_type: "credit_alphanum4",
             asset_code: "USDC",
-            asset_issuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+            asset_issuer:
+              "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
             balance: "50.0000000",
           },
         ],
@@ -235,17 +232,17 @@ describe("BlockchainService", () => {
         statusText: "Not Found",
       });
 
-      await expect(
-        service.getAccountBalances(TEST_PUBLIC_KEY),
-      ).rejects.toThrow(/Horizon returned 404/);
+      await expect(service.getAccountBalances(TEST_PUBLIC_KEY)).rejects.toThrow(
+        /Horizon returned 404/,
+      );
     });
 
     it("should throw when fetch itself fails", async () => {
       mockFetch.mockRejectedValue(new Error("Network error"));
 
-      await expect(
-        service.getAccountBalances(TEST_PUBLIC_KEY),
-      ).rejects.toThrow("Network error");
+      await expect(service.getAccountBalances(TEST_PUBLIC_KEY)).rejects.toThrow(
+        "Network error",
+      );
     });
   });
 
@@ -267,13 +264,12 @@ describe("BlockchainService", () => {
         statusText: "Bad Request",
       });
 
-      await expect(
-        service.fundTestnetAccount(TEST_PUBLIC_KEY),
-      ).rejects.toThrow(/Friendbot funding failed/);
+      await expect(service.fundTestnetAccount(TEST_PUBLIC_KEY)).rejects.toThrow(
+        /Friendbot funding failed/,
+      );
     });
 
     it("should throw when Friendbot is unavailable on the network", async () => {
-
       process.env.STELLAR_RPC_URL = "https://rpc.example.com";
       const mainnetService = new BlockchainService("mainnet");
 
@@ -285,9 +281,7 @@ describe("BlockchainService", () => {
 
   describe("buildPaymentXdr", () => {
     beforeEach(() => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
     });
 
     it("should build a valid payment XDR for native asset", async () => {
@@ -303,10 +297,7 @@ describe("BlockchainService", () => {
       expect(result.hash).toMatch(/^[a-f0-9]{64}$/);
       expect(result.networkPassphrase).toBe(Networks.TESTNET);
 
-      const tx = TransactionBuilder.fromXDR(
-        result.xdr,
-        Networks.TESTNET,
-      );
+      const tx = TransactionBuilder.fromXDR(result.xdr, Networks.TESTNET);
       expect(tx).toBeDefined();
     });
 
@@ -337,13 +328,86 @@ describe("BlockchainService", () => {
 
       expect(result.xdr).toBeDefined();
     });
+
+    it("should accept memo exactly 28 bytes", async () => {
+      // 28 ASCII characters = 28 bytes
+      const memo28Bytes = "ABCDEFGHIJKLMNOPQRSTUVWXYZAB";
+      expect(Buffer.byteLength(memo28Bytes, "utf8")).toBe(28);
+
+      const result = await service.buildPaymentXdr({
+        sourceSecret: TEST_SECRET,
+        destination: DESTINATION_PUBLIC_KEY,
+        amount: "5",
+        memo: memo28Bytes,
+      });
+
+      expect(result.xdr).toBeDefined();
+    });
+
+    it("should throw error for memo 29 bytes", async () => {
+      // 29 ASCII characters = 29 bytes
+      const memo29Bytes = "ABCDEFGHIJKLMNOPQRSTUVWXYZABC";
+      expect(Buffer.byteLength(memo29Bytes, "utf8")).toBe(29);
+
+      await expect(
+        service.buildPaymentXdr({
+          sourceSecret: TEST_SECRET,
+          destination: DESTINATION_PUBLIC_KEY,
+          amount: "5",
+          memo: memo29Bytes,
+        }),
+      ).rejects.toThrow(
+        /Memo text exceeds maximum length of 28 bytes \(got 29 bytes\)/,
+      );
+    });
+
+    it("should handle multi-byte characters correctly", async () => {
+      // "😀" is 4 bytes in UTF-8, so 7 emojis = 28 bytes
+      const multiByteMemo = "😀😀😀😀😀😀😀";
+      expect(Buffer.byteLength(multiByteMemo, "utf8")).toBe(28);
+
+      const result = await service.buildPaymentXdr({
+        sourceSecret: TEST_SECRET,
+        destination: DESTINATION_PUBLIC_KEY,
+        amount: "5",
+        memo: multiByteMemo,
+      });
+
+      expect(result.xdr).toBeDefined();
+    });
+
+    it("should throw error for multi-byte memo exceeding 28 bytes", async () => {
+      // 8 emojis = 32 bytes, which exceeds the 28 byte limit
+      const multiByteMemoTooLong = "😀😀😀😀😀😀😀😀";
+      expect(Buffer.byteLength(multiByteMemoTooLong, "utf8")).toBe(32);
+
+      await expect(
+        service.buildPaymentXdr({
+          sourceSecret: TEST_SECRET,
+          destination: DESTINATION_PUBLIC_KEY,
+          amount: "5",
+          memo: multiByteMemoTooLong,
+        }),
+      ).rejects.toThrow(
+        /Memo text exceeds maximum length of 28 bytes \(got 32 bytes\)/,
+      );
+    });
+
+    it("should accept empty string memo", async () => {
+      const result = await service.buildPaymentXdr({
+        sourceSecret: TEST_SECRET,
+        destination: DESTINATION_PUBLIC_KEY,
+        amount: "5",
+        memo: "",
+      });
+
+      expect(result.xdr).toBeDefined();
+    });
   });
 
   describe("buildTransactionXdr", () => {
     beforeEach(() => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
     });
 
     it("should build a transaction with a single operation", async () => {
@@ -406,9 +470,7 @@ describe("BlockchainService", () => {
 
   describe("signTransaction", () => {
     it("should add a signature to an unsigned transaction", async () => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
 
       const { xdr: unsignedXdr } = await service.buildPaymentXdr({
         sourceSecret: TEST_SECRET,
@@ -428,10 +490,7 @@ describe("BlockchainService", () => {
 
   describe("simulateTransaction", () => {
     it("should return simulation result on success", async () => {
-
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
 
       const { xdr: txXdr } = await service.buildPaymentXdr({
         sourceSecret: TEST_SECRET,
@@ -455,9 +514,7 @@ describe("BlockchainService", () => {
     });
 
     it("should throw when simulation returns an error", async () => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
 
       const { xdr: txXdr } = await service.buildPaymentXdr({
         sourceSecret: TEST_SECRET,
@@ -479,9 +536,7 @@ describe("BlockchainService", () => {
 
   describe("prepareTransaction", () => {
     it("should return assembled XDR from RPC server", async () => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
 
       const { xdr: txXdr } = await service.buildPaymentXdr({
         sourceSecret: TEST_SECRET,
@@ -503,9 +558,7 @@ describe("BlockchainService", () => {
     let signedXdr: string;
 
     beforeEach(async () => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
 
       const { xdr: unsignedXdr } = await service.buildPaymentXdr({
         sourceSecret: TEST_SECRET,
@@ -565,9 +618,7 @@ describe("BlockchainService", () => {
 
   describe("buildContractCallXdr", () => {
     it("should build a contract invocation transaction", async () => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
 
       const contractId =
         "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
@@ -585,9 +636,7 @@ describe("BlockchainService", () => {
     });
 
     it("should work with no args", async () => {
-      mockRpcServer.getAccount.mockResolvedValue(
-        mockAccount(TEST_PUBLIC_KEY),
-      );
+      mockRpcServer.getAccount.mockResolvedValue(mockAccount(TEST_PUBLIC_KEY));
 
       const contractId =
         "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";

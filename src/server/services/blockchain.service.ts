@@ -1,21 +1,24 @@
 import {
-  Keypair,
-  Networks,
-  TransactionBuilder,
-  Transaction,
-  FeeBumpTransaction,
-  Operation,
-  Asset,
-  Contract,
-  BASE_FEE,
-  xdr,
-  nativeToScVal,
-  scValToNative,
+  EnvServiceDiscovery,
+  ServiceDiscovery,
+} from "@/server/utils/service-discovery";
+import {
   Address,
+  Asset,
+  BASE_FEE,
+  Contract,
+  FeeBumpTransaction,
+  Keypair,
+  nativeToScVal,
+  Networks,
+  Operation,
+  scValToNative,
+  Transaction,
+  TransactionBuilder,
+  xdr,
 } from "@stellar/stellar-sdk";
-import { Server as RpcServer, Api } from "@stellar/stellar-sdk/rpc";
+import { Api, Server as RpcServer } from "@stellar/stellar-sdk/rpc";
 import { Logger } from "./logger.service";
-import { ServiceDiscovery, EnvServiceDiscovery } from "@/server/utils/service-discovery";
 
 type NetworkName = "testnet" | "mainnet" | "futurenet";
 
@@ -88,9 +91,7 @@ export class BlockchainService {
   ) {
     this.networkConfig = {
       ...NETWORK_CONFIGS[network],
-      rpcUrl: this.serviceDiscovery.getRpcUrl(
-        NETWORK_CONFIGS[network].rpcUrl,
-      ),
+      rpcUrl: this.serviceDiscovery.getRpcUrl(NETWORK_CONFIGS[network].rpcUrl),
       horizonUrl: this.serviceDiscovery.getHorizonUrl(
         NETWORK_CONFIGS[network].horizonUrl,
       ),
@@ -209,11 +210,16 @@ export class BlockchainService {
     );
 
     if (params.memo) {
+      const memoByteLength = Buffer.byteLength(params.memo, "utf8");
+      if (memoByteLength > 28) {
+        throw new Error(
+          `Memo text exceeds maximum length of 28 bytes (got ${memoByteLength} bytes). ` +
+            `Stellar protocol limits text memos to 28 bytes.`,
+        );
+      }
+
       builder.addMemo(
-        new (await import("@stellar/stellar-sdk")).Memo(
-          "text",
-          params.memo,
-        ),
+        new (await import("@stellar/stellar-sdk")).Memo("text", params.memo),
       );
     }
 
@@ -243,9 +249,7 @@ export class BlockchainService {
       builder.addOperation(op);
     }
 
-    const tx = builder
-      .setTimeout(params.timeboundSeconds ?? 180)
-      .build();
+    const tx = builder.setTimeout(params.timeboundSeconds ?? 180).build();
 
     return {
       xdr: tx.toXDR(),
@@ -254,10 +258,7 @@ export class BlockchainService {
     };
   }
 
-  signTransaction(
-    xdrEnvelope: string,
-    signerSecret: string,
-  ): string {
+  signTransaction(xdrEnvelope: string, signerSecret: string): string {
     const tx = TransactionBuilder.fromXDR(
       xdrEnvelope,
       this.networkConfig.networkPassphrase,
@@ -267,9 +268,7 @@ export class BlockchainService {
     return tx.toXDR();
   }
 
-  async simulateTransaction(
-    txXdr: string,
-  ): Promise<SimulationResult> {
+  async simulateTransaction(txXdr: string): Promise<SimulationResult> {
     const tx = TransactionBuilder.fromXDR(
       txXdr,
       this.networkConfig.networkPassphrase,
@@ -291,7 +290,9 @@ export class BlockchainService {
       transactionXdr: txXdr,
       minResourceFee: successResponse.minResourceFee ?? "0",
       result: successResponse.result,
-      events: successResponse.events.map((e: xdr.DiagnosticEvent) => e.toXDR("base64")),
+      events: successResponse.events.map((e: xdr.DiagnosticEvent) =>
+        e.toXDR("base64"),
+      ),
       latestLedger: successResponse.latestLedger,
     };
   }
@@ -306,9 +307,7 @@ export class BlockchainService {
     return prepared.toXDR();
   }
 
-  async submitTransaction(
-    signedXdr: string,
-  ): Promise<SubmissionResult> {
+  async submitTransaction(signedXdr: string): Promise<SubmissionResult> {
     const tx = TransactionBuilder.fromXDR(
       signedXdr,
       this.networkConfig.networkPassphrase,
@@ -344,8 +343,7 @@ export class BlockchainService {
       );
     }
 
-    const successResp =
-      finalResponse as Api.GetSuccessfulTransactionResponse;
+    const successResp = finalResponse as Api.GetSuccessfulTransactionResponse;
 
     return {
       hash: sendResponse.hash,
