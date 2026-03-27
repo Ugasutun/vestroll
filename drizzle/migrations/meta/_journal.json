@@ -82,8 +82,17 @@
     {
       "idx": 9,
       "version": "7",
+      "when": 1774538534859,
+      "tag": "0009_colorful_legion",
       "when": 1774532473984,
       "tag": "0009_tired_malice",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774430000000,
+      "tag": "0010_add_transaction_cache",
       "breakpoints": true
     }
   ]

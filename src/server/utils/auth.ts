@@ -4,6 +4,8 @@ import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { UnauthorizedError } from "./errors";
 import crypto from "crypto";
+import { JWTTokenService } from "../services/jwt-token.service";
+import { SessionService } from "../services/session.service";
 
 interface TokenPayload {
   userId: string;
@@ -108,6 +110,53 @@ export class AuthUtils {
     return {
       userId: payload.userId,
       email: payload.email,
+      user,
+    };
+  }
+
+  static async authenticateRequestOrRefreshCookie(request: NextRequest): Promise<{
+    userId: string;
+    email: string;
+    user: typeof users.$inferSelect;
+  }> {
+    const bearerToken = this.extractToken(request);
+
+    if (bearerToken) {
+      return this.authenticateRequest(request);
+    }
+
+    const refreshToken = request.cookies.get("refreshToken")?.value;
+    if (!refreshToken) {
+      throw new UnauthorizedError("Authentication required");
+    }
+
+    const payload = await JWTTokenService.verifyToken(refreshToken);
+    const userId =
+      payload && typeof payload.userId === "string" ? payload.userId : null;
+    const email = payload && typeof payload.email === "string" ? payload.email : null;
+
+    if (!userId || !email) {
+      throw new UnauthorizedError("Invalid or expired token");
+    }
+
+    const session = await SessionService.validateSession(refreshToken, userId);
+    if (!session) {
+      throw new UnauthorizedError("Invalid or expired token");
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+
+    if (!user) {
+      throw new UnauthorizedError("User not found");
+    }
+
+    if (user.status === "suspended") {
+      throw new UnauthorizedError("Account is suspended");
+    }
+
+    return {
+      userId,
+      email,
       user,
     };
   }
