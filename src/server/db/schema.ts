@@ -341,7 +341,7 @@ export const companyProfiles = pgTable("company_profiles", {
   billingAltAddress: varchar("billing_alt_address", { length: 500 }),
   billingCity: varchar("billing_city", { length: 255 }),
   billingRegion: varchar("billing_region", { length: 255 }),
-  billingCountry: varchar("billing_country", { length: 255 }),
+  billingCountry: varchar("billing_country", { length: 2 }).notNull(),
   billingPostalCode: varchar("billing_postal_code", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
