@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+
 export class Logger {
     static info(message: string, context?: Record<string, unknown>) {
         console.log(JSON.stringify({ level: "info", message, ...context }));
