@@ -1,4 +1,5 @@
 {
+  "id": "581dfa7a-ba2f-4028-bbac-a24eda81734b",
   "id": "1823954f-7171-4862-961b-aadfb78fdaa6",
   "prevId": "ec48320e-d39f-4d00-a6d8-8f19bc90f843",
   "version": "7",
@@ -1296,6 +1297,18 @@
         },
         "wallet_address": {
           "name": "wallet_address",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "virtual_account_number": {
+          "name": "virtual_account_number",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "virtual_bank_name": {
+          "name": "virtual_bank_name",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false

@@ -11,6 +11,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
   onClose,
   onSave,
   currentImage,
+  shape = "circle",
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -97,7 +98,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
         return;
       }
 
-      // Set canvas size for circular crop (200x200 for profile image)
+      // Set canvas size to 200×200 (1:1 for both square and circle crops)
       const size = 200;
       canvas.width = size;
       canvas.height = size;
@@ -105,10 +106,12 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
       // Clear canvas
       ctx.clearRect(0, 0, size, size);
 
-      // Create circular clipping path
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-      ctx.clip();
+      // Apply circular clipping path only for profile photos
+      if (shape === "circle") {
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        ctx.clip();
+      }
 
       // Calculate image positioning and scaling
       const centerX = size / 2;
@@ -145,7 +148,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
         0.9
       );
     });
-  }, [selectedImage, selectedFile, zoom, rotation, position]);
+  }, [selectedImage, selectedFile, zoom, rotation, position, shape]);
 
   const handleSave = async () => {
     if (!selectedFile) return;
@@ -230,7 +233,7 @@ const ImageUploadModal: React.FC<ImageUploadModalProps> = ({
             {/* Image Preview */}
             <div className="flex justify-center">
               <div className="relative">
-                <div className="w-36 h-36 sm:w-48 sm:h-48 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 relative">
+                <div className={`w-36 h-36 sm:w-48 sm:h-48 ${shape === "square" ? "rounded-xl" : "rounded-full"} overflow-hidden bg-gray-100 border-2 border-gray-200 relative`}>
                   {displayImage ? (
                     <div
                       className="w-full h-full relative cursor-move"

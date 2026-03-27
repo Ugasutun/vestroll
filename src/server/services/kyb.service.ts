@@ -1,7 +1,7 @@
 import crypto from "crypto";
-import { db, kybVerifications, kybStatusEnum } from "../db";
+import { db, kybVerifications, kybStatusEnum, kybAuditLogs } from "../db";
 import { eq } from "drizzle-orm";
-import { ConflictError } from "../utils/errors";
+import { ConflictError, NotFoundError } from "../utils/errors";
 import { Logger } from "./logger.service";
 
 export type KybStatus = (typeof kybStatusEnum.enumValues)[number];
@@ -14,7 +14,6 @@ const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
 export class KybService {
-  
   static async getStatus(userId: string) {
     const [verification] = await db
       .select()
@@ -91,7 +90,9 @@ export class KybService {
 
   static async deleteFromCloudinary(publicIds: string[]): Promise<void> {
     if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-      Logger.warn("Cloudinary environment variables not configured, cannot delete files", { missingEnv: true });
+      Logger.warn("Cloudinary environment variables not configured, cannot delete files", {
+        missingEnv: true,
+      });
       return;
     }
 
@@ -115,7 +116,10 @@ export class KybService {
           { method: "POST", body: formData },
         );
       } catch (error) {
-        Logger.error("Failed to delete file from Cloudinary", { publicId, error: String(error) });
+        Logger.error("Failed to delete file from Cloudinary", {
+          publicId,
+          error: String(error),
+        });
       }
     }
   }
@@ -132,7 +136,6 @@ export class KybService {
     formC02C07Url: string | null;
   }) {
     return await db.transaction(async (tx) => {
-
       const [existing] = await tx
         .select()
         .from(kybVerifications)
@@ -176,12 +179,176 @@ export class KybService {
         })
         .returning();
 
+      await tx.insert(kybAuditLogs).values({
+        entityType: "kyb_verification",
+        entityId: record.id,
+        action: "status_changed_to_pending",
+        actorId: data.userId,
+        metadata: { triggeredBy: "user_submission" },
+      });
+
       return {
         id: record.id,
         status: record.status,
         registrationType: record.registrationType,
         registrationNo: record.registrationNo,
         createdAt: record.createdAt,
+      };
+    });
+  }
+
+  /**
+   * Approve a pending KYB verification.
+   *
+   * The status update and audit log insert execute within the same DB transaction,
+   * guaranteeing atomicity — if either write fails, both are rolled back.
+   */
+  static async approve(data: { verificationId: string; adminUserId: string }) {
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(kybVerifications)
+        .where(eq(kybVerifications.id, data.verificationId))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundError("KYB verification record not found");
+      }
+
+      // Only pending verifications can be approved
+      if (existing.status !== "pending") {
+        throw new ConflictError(
+          `Cannot approve a verification that is already '${existing.status}'`,
+        );
+      }
+
+      const previousStatus = existing.status;
+
+      // Include status = 'pending' in the WHERE clause to make the transition
+      // race-safe: if another transaction changed the status between our SELECT
+      // and this UPDATE, 0 rows are affected and we detect it below.
+      const [updated] = await tx
+        .update(kybVerifications)
+        .set({
+          status: "verified",
+          rejectionCode: null,
+          rejectionReason: null,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          eq(kybVerifications.id, data.verificationId),
+        )
+        .returning();
+
+      // Guard against concurrent modification between SELECT and UPDATE
+      if (!updated) {
+        throw new ConflictError(
+          "KYB verification was modified concurrently; please retry",
+        );
+      }
+
+      await tx.insert(kybAuditLogs).values({
+        entityType: "kyb_verification",
+        entityId: data.verificationId,
+        action: "status_changed_to_verified",
+        actorId: data.adminUserId,
+        metadata: { previousStatus },
+      });
+
+      Logger.info("KYB verification approved", {
+        verificationId: data.verificationId,
+        adminUserId: data.adminUserId,
+        previousStatus,
+      });
+
+      return {
+        id: updated.id,
+        status: updated.status,
+        reviewedAt: updated.reviewedAt,
+      };
+    });
+  }
+
+  /**
+   * Reject a pending KYB verification.
+   *
+   * The status update and audit log insert execute within the same DB transaction,
+   * guaranteeing atomicity — if either write fails, both are rolled back.
+   */
+  static async reject(data: {
+    verificationId: string;
+    adminUserId: string;
+    rejectionCode: string;
+    rejectionReason: string;
+  }) {
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(kybVerifications)
+        .where(eq(kybVerifications.id, data.verificationId))
+        .limit(1);
+
+      if (!existing) {
+        throw new NotFoundError("KYB verification record not found");
+      }
+
+      // Only pending verifications can be rejected
+      if (existing.status !== "pending") {
+        throw new ConflictError(
+          `Cannot reject a verification that is already '${existing.status}'`,
+        );
+      }
+
+      const previousStatus = existing.status;
+
+      // Include status = 'pending' in the WHERE clause to make the transition
+      // race-safe: if another transaction changed the status between our SELECT
+      // and this UPDATE, 0 rows are affected and we detect it below.
+      const [updated] = await tx
+        .update(kybVerifications)
+        .set({
+          status: "rejected",
+          rejectionCode: data.rejectionCode,
+          rejectionReason: data.rejectionReason,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(kybVerifications.id, data.verificationId))
+        .returning();
+
+      // Guard against concurrent modification between SELECT and UPDATE
+      if (!updated) {
+        throw new ConflictError(
+          "KYB verification was modified concurrently; please retry",
+        );
+      }
+
+      await tx.insert(kybAuditLogs).values({
+        entityType: "kyb_verification",
+        entityId: data.verificationId,
+        action: "status_changed_to_rejected",
+        actorId: data.adminUserId,
+        metadata: {
+          previousStatus,
+          rejectionCode: data.rejectionCode,
+          rejectionReason: data.rejectionReason,
+        },
+      });
+
+      Logger.info("KYB verification rejected", {
+        verificationId: data.verificationId,
+        adminUserId: data.adminUserId,
+        previousStatus,
+        rejectionCode: data.rejectionCode,
+      });
+
+      return {
+        id: updated.id,
+        status: updated.status,
+        rejectionCode: updated.rejectionCode,
+        rejectionReason: updated.rejectionReason,
+        reviewedAt: updated.reviewedAt,
       };
     });
   }

@@ -1,10 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import { db, users, userStatusEnum, signerTypeEnum } from "../db";
 import { AuditLogService } from "./audit-log.service";
+import type { Transaction } from "drizzle-orm/postgres-core";
 
 export type UserStatus = (typeof userStatusEnum.enumValues)[number];
 export type SignerType = (typeof signerTypeEnum.enumValues)[number];
-
 
 // Whitelist of allowed domains for avatar URLs
 const ALLOWED_AVATAR_DOMAINS = [
@@ -52,14 +52,20 @@ export class UserService {
     return user || null;
   }
 
-  static async create(data: {
-    firstName: string;
-    lastName: string;
-    email: string;
-  }) {
+  static async create(
+    data: {
+      firstName: string;
+      lastName: string;
+      email: string;
+    },
+    tx?: Transaction,
+  ) {
     const normalizedEmail = data.email.toLowerCase().trim();
 
-    const [user] = await db
+    // Use provided transaction context or create a new transaction
+    const executor = tx || db;
+
+    const [user] = await executor
       .insert(users)
       .values({
         firstName: data.firstName,

@@ -68,10 +68,12 @@ export class AuthService {
       let organizationId: string | undefined;
 
       if (companyName) {
+        const slug = generateSlug(companyName);
         const [org] = await tx
           .insert(organizations)
           .values({
             name: companyName,
+            slug,
             industry: companyIndustry,
             registeredCountry: headquarterCountry,
           })

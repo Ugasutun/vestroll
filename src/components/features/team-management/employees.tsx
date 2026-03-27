@@ -10,6 +10,9 @@ import { StatsBar } from "@/components/features/team-management/StatsBar";
 import { EmployeeList } from "@/components/features/team-management/EmployeeList";
 import { useSort } from "@/hooks/use-sort";
 import { Employee } from "@/types/teamManagement.types";
+import { AddEmployeeWizard, WizardFormData } from "./add-employee-wizard";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface TeamMgtEmployeesProps {
   employees: Employee[];
@@ -17,6 +20,7 @@ interface TeamMgtEmployeesProps {
 
 const TeamMgtEmployees: React.FC<TeamMgtEmployeesProps> = ({ employees }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
 
   const {
     data: paginatedEmployees,
@@ -47,6 +51,16 @@ const TeamMgtEmployees: React.FC<TeamMgtEmployeesProps> = ({ employees }) => {
     setFilters(newFilters);
   };
 
+  const handleAddEmployeeSuccess = async (data: WizardFormData) => {
+    // Mocking an API call
+    console.log("Adding new employee with wizard data:", data);
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 1500);
+    });
+  };
+
   const employeeFilterConfig = [
     {
       key: "status",
@@ -70,7 +84,12 @@ const TeamMgtEmployees: React.FC<TeamMgtEmployeesProps> = ({ employees }) => {
   if (employees.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200">
-        <TeamEmptyState onAddEmployee={() => console.log("Add employee")} />
+        <TeamEmptyState onAddEmployee={() => setIsAddEmployeeOpen(true)} />
+        <AddEmployeeWizard 
+          isOpen={isAddEmployeeOpen} 
+          onClose={() => setIsAddEmployeeOpen(false)} 
+          onSuccess={handleAddEmployeeSuccess}
+        />
       </div>
     );
   }
@@ -95,6 +114,13 @@ const TeamMgtEmployees: React.FC<TeamMgtEmployeesProps> = ({ employees }) => {
               onFilterClick={() => setIsFilterOpen(true)}
             />
           </div>
+          <Button 
+            onClick={() => setIsAddEmployeeOpen(true)}
+            className="bg-primary-600 hover:bg-primary-700 text-white flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Member</span>
+          </Button>
         </div>
       </div>
 
@@ -139,6 +165,12 @@ const TeamMgtEmployees: React.FC<TeamMgtEmployeesProps> = ({ employees }) => {
         filters={filters}
         onApply={handleFilterApply}
         filterConfiguration={employeeFilterConfig}
+      />
+
+      <AddEmployeeWizard 
+        isOpen={isAddEmployeeOpen} 
+        onClose={() => setIsAddEmployeeOpen(false)} 
+        onSuccess={handleAddEmployeeSuccess}
       />
     </>
   );
