@@ -15,7 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:seed:local": "psql -d vestroll_dev -f scripts/db/seed-local.sql",
-    "db:seed": "tsx src/server/db/seed.ts"
+    "db:prune-logs": "tsx scripts/prune-logs.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1017.0",

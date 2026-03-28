@@ -19,7 +19,15 @@ import {
 } from "@stellar/stellar-sdk";
 import { Api, Server as RpcServer } from "@stellar/stellar-sdk/rpc";
 import { Logger } from "./logger.service";
-import { db, signerAudits } from "../db";
+import { ServiceDiscovery, EnvServiceDiscovery } from "@/server/utils/service-discovery";
+import {
+  wrapBlockchainError,
+  AccountNotFoundError,
+  InsufficientFundsError,
+  SimulationFailedError,
+  TransactionRejectedError,
+  BlockchainError,
+} from "@/server/utils/errors/blockchain-error";
 
 type NetworkName = "testnet" | "mainnet" | "futurenet";
 
@@ -117,7 +125,7 @@ export class BlockchainService {
         publicKey,
         error: String(error),
       });
-      throw error;
+      throw wrapBlockchainError(error);
     }
   }
 
@@ -155,7 +163,7 @@ export class BlockchainService {
         publicKey,
         error: String(error),
       });
-      throw error;
+      throw wrapBlockchainError(error);
     }
   }
 
@@ -296,7 +304,10 @@ export class BlockchainService {
       Logger.error("Transaction simulation failed", {
         error: simResponse.error,
       });
-      throw new Error(`Simulation error: ${simResponse.error}`);
+      throw new SimulationFailedError(
+        `Simulation error: ${simResponse.error}`,
+        simResponse.error,
+      );
     }
 
     const successResponse =
@@ -351,8 +362,10 @@ export class BlockchainService {
         status: sendResponse.status,
         hash: sendResponse.hash,
       });
-      throw new Error(
+      throw new TransactionRejectedError(
         `Transaction was not accepted: ${JSON.stringify(sendResponse)}`,
+        sendResponse.hash,
+        sendResponse.status,
       );
     }
 
@@ -369,8 +382,10 @@ export class BlockchainService {
         status: finalResponse.status,
         hash: sendResponse.hash,
       });
-      throw new Error(
+      throw new TransactionRejectedError(
         `Transaction failed with status: ${finalResponse.status}`,
+        sendResponse.hash,
+        finalResponse.status,
       );
     }
 

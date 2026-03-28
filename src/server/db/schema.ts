@@ -257,17 +257,21 @@ export const sessions = pgTable(
   (table) => [index("sessions_user_id_idx").on(table.userId)],
 );
 
-export const loginAttempts = pgTable("login_attempts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: varchar("email", { length: 255 }).notNull(),
-  ipAddress: varchar("ip_address", { length: 45 }),
-  userAgent: text("user_agent"),
-  lastLoginIp: varchar("last_login_ip", { length: 45 }),
-  lastLoginUa: text("last_login_ua"),
-  success: boolean("success").notNull(),
-  failureReason: text("failure_reason"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: varchar("email", { length: 255 }).notNull(),
+    ipAddress: varchar("ip_address", { length: 45 }),
+    userAgent: text("user_agent"),
+    lastLoginIp: varchar("last_login_ip", { length: 45 }),
+    lastLoginUa: text("last_login_ua"),
+    success: boolean("success").notNull(),
+    failureReason: text("failure_reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("login_attempts_created_at_idx").on(table.createdAt)]
+);
 
 export const biometricLogs = pgTable("biometric_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
